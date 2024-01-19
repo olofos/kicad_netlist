@@ -1,11 +1,10 @@
 use nom::{
     branch::alt,
     bytes::complete::{escaped, tag},
-    character::complete::{multispace0, none_of, one_of},
-    combinator::{opt, value},
-    error::ParseError,
+    character::complete::{alpha1, multispace0, none_of, one_of},
+    combinator::{map, recognize, value},
     multi::{many0, many1},
-    sequence::{delimited, tuple},
+    sequence::{delimited, terminated, tuple},
     IResult,
 };
 
@@ -132,150 +131,112 @@ fn comp(i: &str) -> IResult<&str, Component> {
     ))
 }
 
-fn pin(i: &str) -> IResult<&str, Pin> {
-    let (i, (num, name, typ)) = sexpr(
-        "pin",
-        tuple((
-            sexpr("num", string),
-            sexpr("name", string),
-            sexpr("type", string),
-        )),
-    )(i)?;
-    Ok((i, Pin { num, name, typ }))
+#[derive(Debug)]
+enum SExpr<'a> {
+    SExpr(&'a str, Vec<SExpr<'a>>),
+    String(&'a str),
 }
 
-fn libpart(i: &str) -> IResult<&str, Part> {
-    let (i, (lib, part, description, _, _, _, pins)) = sexpr(
-        "libpart",
-        tuple((
-            sexpr("lib", string),
-            sexpr("part", string),
-            sexpr("description", string),
-            sexpr("docs", string),
-            opt(sexpr("footprints", many0(sexpr("fp", string)))),
-            opt(sexpr("fields", many0(field))),
-            sexpr("pins", many0(pin)),
-        )),
-    )(i)?;
-    Ok((
-        i,
-        Part {
-            lib,
-            part,
-            description,
-            pins,
-        },
-    ))
+impl<'a> SExpr<'a> {
+    fn is_string(&self) -> bool {
+        matches!(self, SExpr::String(_))
+    }
+
+    fn label(&self) -> Option<&str> {
+        match self {
+            SExpr::String(_) => None,
+            SExpr::SExpr(label, _) => Some(label),
+        }
+    }
+
+    fn value(&self) -> Option<&str> {
+        match self {
+            SExpr::String(s) => Some(s),
+            SExpr::SExpr(_, children) => {
+                if children.is_empty() {
+                    None
+                } else {
+                    children[0].value()
+                }
+            }
+        }
+    }
 }
 
-fn library(i: &str) -> IResult<&str, (&str, &str)> {
-    sexpr(
-        "library",
-        tuple((sexpr("logical", string), sexpr("uri", string))),
+#[derive(Debug)]
+struct LabeledChildIterator<'a, 'b> {
+    iter: Option<std::slice::Iter<'a, SExpr<'a>>>,
+    label: &'b str,
+}
+
+impl<'a, 'b> Iterator for LabeledChildIterator<'a, 'b> {
+    type Item = &'a SExpr<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(ref mut iter) = self.iter else {
+            return None;
+        };
+        loop {
+            let item = iter.next();
+            match &item {
+                None => return None,
+                Some(SExpr::String(_)) => continue,
+                Some(SExpr::SExpr(label, _)) => {
+                    if *label == self.label {
+                        return item;
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<'a> SExpr<'a> {
+    fn children<'b>(&'a self, label: &'b str) -> LabeledChildIterator<'a, 'b> {
+        let iter = match self {
+            SExpr::String(_) => None,
+            SExpr::SExpr(_, children) => Some(children.iter()),
+        };
+        LabeledChildIterator { iter, label }
+    }
+
+    fn child<'b>(&'a self, label: &'b str) -> Option<&'a SExpr<'a>> {
+        let mut iter = self.children(label);
+        iter.next()
+    }
+}
+
+fn string(i: &str) -> IResult<&str, SExpr> {
+    map(
+        terminated(
+            alt((
+                value("", tag("\"\"")),
+                delimited(
+                    tag("\""),
+                    escaped(none_of(r#"\""#), '\\', one_of(r#""nfrtb\"#)),
+                    tag("\""),
+                ),
+            )),
+            multispace0,
+        ),
+        SExpr::String,
     )(i)
 }
 
-fn sheet(i: &str) -> IResult<&str, ()> {
-    let (i, _) = sexpr(
-        "sheet",
-        tuple((
-            sexpr("number", string),
-            sexpr("name", string),
-            sexpr("tstamps", string),
-            sexpr(
-                "title_block",
-                tuple((
-                    sexpr("title", opt(string)),
-                    sexpr("company", opt(string)),
-                    sexpr("rev", opt(string)),
-                    sexpr("date", opt(string)),
-                    sexpr("source", opt(string)),
-                    many0(sexpr(
-                        "comment",
-                        tuple((sexpr("number", string), sexpr("value", string))),
-                    )),
-                )),
-            ),
-        )),
-    )(i)?;
-    Ok((i, ()))
+fn label(i: &str) -> IResult<&str, &str> {
+    terminated(recognize(many1(alt((alpha1, tag("_"))))), multispace0)(i)
 }
 
-fn node(i: &str) -> IResult<&str, Node> {
-    let (i, (reference, pin, function, typ)) = sexpr(
-        "node",
-        tuple((
-            sexpr("ref", string),
-            sexpr("pin", string),
-            opt(sexpr("pinfunction", string)),
-            sexpr("pintype", string),
-        )),
-    )(i)?;
-    Ok((
-        i,
-        Node {
-            reference,
-            pin,
-            function,
-            typ,
-        },
-    ))
+fn sexpr(i: &str) -> IResult<&str, SExpr> {
+    map(
+        delimited(
+            tag("("),
+            tuple((label, many0(alt((string, sexpr))))),
+            tuple((tag(")"), multispace0)),
+        ),
+        |(label, chilren)| SExpr::SExpr(label, chilren),
+    )(i)
 }
-
-fn net(i: &str) -> IResult<&str, Net> {
-    let (i, (code, name, nodes)) = sexpr(
-        "net",
-        tuple((sexpr("code", string), sexpr("name", string), many0(node))),
-    )(i)?;
-
-    Ok((i, Net { code, name, nodes }))
-}
-
-fn netlist(i: &str) -> IResult<&str, NetList> {
-    let (i, (_, _, components, parts, _, nets)) = sexpr(
-        "export",
-        tuple((
-            sexpr("version", tag(r#""E""#)),
-            sexpr(
-                "design",
-                tuple((
-                    sexpr("source", string),
-                    sexpr("date", string),
-                    sexpr("tool", string),
-                    many1(sheet),
-                )),
-            ),
-            sexpr("components", many0(comp)),
-            sexpr("libparts", many0(libpart)),
-            sexpr("libraries", many0(library)),
-            sexpr("nets", many0(net)),
-        )),
-    )(i)?;
-    Ok((
-        i,
-        NetList {
-            components,
-            parts,
-            nets,
-        },
-    ))
-}
-
-impl<'a> TryFrom<&'a str> for NetList<'a> {
-    type Error = ();
-
-    fn try_from(i: &'a str) -> Result<Self, Self::Error> {
-        match netlist(i) {
-            Ok((i, netlist)) => {
-                if i == "" {
-                    return Ok(netlist);
-                } else {
-                    return Err(());
-                }
-            }
-            Err(_) => return Err(()),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -289,71 +250,27 @@ mod tests {
     }
 
     #[test]
-    fn string_works() {
-        assert_eq!(string(r#""abc""#).unwrap(), ("", "abc"));
-    }
-
-    #[test]
-    fn string_can_parse_empty_string() {
-        assert_eq!(string(r#""""#).unwrap(), ("", ""));
-    }
-
-    #[test]
-    fn string_escaping_works() {
-        assert_eq!(string(r#""\\\"""#).unwrap(), ("", r#"\\\""#));
-    }
-
-    #[test]
-    fn comp_works() {
-        let input = r#"(comp (ref "J1")
-        (value "Conn_01x06_Pin")
-        (footprint "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical")
-        (fields
-          (field (name "test1") "test 1")
-          (field (name "test2") "test \"2\""))
-        (libsource (lib "Connector") (part "Conn_01x06_Pin") (description "Generic connector, single row, 01x06, script generated"))
-        (property (name "Sheetname") (value ""))
-        (property (name "Sheetfile") (value "kvt.kicad_sch"))
-        (property (name "ki_description") (value "Generic connector, single row, 01x06, script generated"))
-        (property (name "ki_keywords") (value "connector"))
-        (sheetpath (names "/") (tstamps "/"))
-        (tstamps "73417a21-9c42-4702-9832-ec63427d336d"))"#;
-        let (i, comp) = comp(input).unwrap();
-
+    fn sexpr_works() {
+        let i = r#"(a "b")"#;
+        let (i, r) = sexpr(i).unwrap();
         assert_eq!(i, "");
-        assert_eq!(comp.reference, "J1");
-        assert_eq!(comp.value, "Conn_01x06_Pin");
-        assert_eq!(comp.lib, "Connector");
-        assert_eq!(comp.part, "Conn_01x06_Pin");
-        assert_eq!(comp.properties.len(), 4);
+        let SExpr::SExpr(label, children) = r else {
+            panic!("")
+        };
+        assert_eq!(label, "a");
+        assert_eq!(children.len(), 1);
+        assert!(children[0].is_string());
     }
 
     #[test]
-    fn libpart_works() {
-        let input = r#"(libpart (lib "74xGxx") (part "74LVC1G00")
-        (description "Single NAND Gate, Low-Voltage CMOS")
-        (docs "https://www.ti.com/lit/ds/symlink/sn74lvc1g00.pdf")
-        (footprints
-          (fp "SOT?23*")
-          (fp "Texas?R-PDSO-G5?DCK*")
-          (fp "Texas?R-PDSO-N5?DRL*")
-          (fp "Texas?X2SON*0.8x0.8mm*P0.48mm*"))
-        (fields
-          (field (name "Reference") "U1")
-          (field (name "Value") "74LVC1G00")
-          (field (name "Footprint") "Package_TO_SOT_SMD:SOT-23-5_HandSoldering")
-          (field (name "Datasheet") "https://www.ti.com/lit/ds/symlink/sn74lvc1g00.pdf"))
-        (pins
-          (pin (num "1") (name "A") (type "input"))
-          (pin (num "2") (name "B") (type "input"))
-          (pin (num "3") (name "GND") (type "power_in"))
-          (pin (num "4") (name "Out") (type "output"))
-          (pin (num "5") (name "VCC") (type "power_in"))))"#;
+    fn sexpr_children_by_name_works() {
+        let i = r#"(a (b "1") (c "2") (b "3"))"#;
+        let (_, root) = sexpr(i).unwrap();
 
-        let (i, part) = libpart(input).unwrap();
-        assert_eq!(i, "");
-        assert_eq!(part.part, "74LVC1G00");
-        assert_eq!(part.pins.len(), 5);
+        let mut iter = root.children("b");
+        assert!(iter.next().is_some());
+        assert!(iter.next().is_some());
+        assert!(iter.next().is_none());
     }
 
     #[test]
