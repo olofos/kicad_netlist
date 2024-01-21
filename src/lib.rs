@@ -21,12 +21,14 @@ pub enum NetListParseError {
     ParseError(#[from] nom::error::Error<String>),
 }
 
+#[derive(Debug, Clone)]
 pub struct NetList<'a> {
     pub components: Vec<Component<'a>>,
     pub parts: Vec<Part<'a>>,
     pub nets: Vec<Net<'a>>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Component<'a> {
     pub reference: &'a str,
     pub value: &'a str,
@@ -36,6 +38,7 @@ pub struct Component<'a> {
     pub footprint: Option<&'a str>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PinType {
     Input,
     Output,
@@ -48,6 +51,36 @@ pub enum PinType {
     OpenCollector,
     OpenEmitter,
     Unconnected,
+}
+
+#[derive(Debug, Clone)]
+pub struct Pin<'a> {
+    pub num: &'a str,
+    pub name: &'a str,
+    pub typ: PinType,
+}
+
+#[derive(Debug, Clone)]
+pub struct Part<'a> {
+    pub lib: &'a str,
+    pub part: &'a str,
+    pub description: &'a str,
+    pub pins: Vec<Pin<'a>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Node<'a> {
+    pub reference: &'a str,
+    pub pin: &'a str,
+    pub function: Option<&'a str>,
+    pub typ: PinType,
+}
+
+#[derive(Debug, Clone)]
+pub struct Net<'a> {
+    pub code: &'a str,
+    pub name: &'a str,
+    pub nodes: Vec<Node<'a>>,
 }
 
 impl TryFrom<&str> for PinType {
@@ -69,32 +102,6 @@ impl TryFrom<&str> for PinType {
             s => Err(NetListParseError::UnknownPinType(s.to_owned())),
         }
     }
-}
-
-pub struct Pin<'a> {
-    pub num: &'a str,
-    pub name: &'a str,
-    pub typ: PinType,
-}
-
-pub struct Part<'a> {
-    pub lib: &'a str,
-    pub part: &'a str,
-    pub description: &'a str,
-    pub pins: Vec<Pin<'a>>,
-}
-
-pub struct Node<'a> {
-    pub reference: &'a str,
-    pub pin: &'a str,
-    pub function: Option<&'a str>,
-    pub typ: PinType,
-}
-
-pub struct Net<'a> {
-    pub code: &'a str,
-    pub name: &'a str,
-    pub nodes: Vec<Node<'a>>,
 }
 
 impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
