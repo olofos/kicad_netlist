@@ -15,6 +15,8 @@ pub enum NetListParseError {
     MissingChild(String),
     #[error("Value not found")]
     MissingValue(),
+    #[error("Unknown pin type {0}")]
+    UnknownPinType(String),
     #[error("Nom error {0}")]
     ParseError(#[from] nom::error::Error<String>),
 }
@@ -34,10 +36,45 @@ pub struct Component<'a> {
     pub footprint: Option<&'a str>,
 }
 
+pub enum PinType {
+    Input,
+    Output,
+    Bidirectional,
+    TriState,
+    Passive,
+    Free,
+    PowerInput,
+    PowerOutput,
+    OpenCollector,
+    OpenEmitter,
+    Unconnected,
+}
+
+impl TryFrom<&str> for PinType {
+    type Error = NetListParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "input" => Ok(Self::Input),
+            "output" => Ok(Self::Output),
+            "bidirectional" => Ok(Self::Bidirectional),
+            "tri_state" => Ok(Self::TriState),
+            "passive" => Ok(Self::Passive),
+            "free" => Ok(Self::Free),
+            "power_in" => Ok(Self::PowerInput),
+            "power_out" => Ok(Self::PowerOutput),
+            "open_collector" => Ok(Self::OpenCollector),
+            "open_emitter" => Ok(Self::OpenEmitter),
+            "no_connect" => Ok(Self::Unconnected),
+            s => Err(NetListParseError::UnknownPinType(s.to_owned())),
+        }
+    }
+}
+
 pub struct Pin<'a> {
     pub num: &'a str,
     pub name: &'a str,
-    pub typ: &'a str,
+    pub typ: PinType,
 }
 
 pub struct Part<'a> {
@@ -51,7 +88,7 @@ pub struct Node<'a> {
     pub reference: &'a str,
     pub pin: &'a str,
     pub function: Option<&'a str>,
-    pub typ: &'a str,
+    pub typ: PinType,
 }
 
 pub struct Net<'a> {
@@ -98,7 +135,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Pin<'a> {
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let num = value.value("num")?;
         let name = value.value("name")?;
-        let typ = value.value("type")?;
+        let typ = value.value("type")?.try_into()?;
 
         Ok(Pin { num, name, typ })
     }
@@ -132,7 +169,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
         let reference = value.value("ref")?;
         let pin = value.value("pin")?;
         let function = value.value("pinfunction").ok();
-        let typ = value.value("pintype")?;
+        let typ = value.value("pintype")?.try_into()?;
 
         Ok(Node {
             reference,
