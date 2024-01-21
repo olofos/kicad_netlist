@@ -7,6 +7,17 @@ use nom::{
     sequence::{delimited, terminated, tuple},
     IResult,
 };
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum NetListParseError {
+    #[error("SExpr {0} not found")]
+    MissingChild(String),
+    #[error("Value not found")]
+    MissingValue(),
+    #[error("Nom error {0}")]
+    ParseError(#[from] nom::error::Error<String>),
+}
 
 pub struct NetList<'a> {
     pub components: Vec<Component<'a>>,
