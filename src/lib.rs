@@ -11,12 +11,17 @@ pub struct NetList<'a> {
     pub nets: Vec<Net<'a>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PartId<'a> {
+    pub lib: &'a str,
+    pub part: &'a str,
+}
+
 #[derive(Debug, Clone)]
 pub struct Component<'a> {
     pub reference: &'a str,
     pub value: &'a str,
-    pub lib: &'a str,
-    pub part: &'a str,
+    pub part_id: PartId<'a>,
     pub properties: Vec<(&'a str, &'a str)>,
     pub footprint: Option<&'a str>,
 }
@@ -45,8 +50,7 @@ pub struct Pin<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Part<'a> {
-    pub lib: &'a str,
-    pub part: &'a str,
+    pub part_id: PartId<'a>,
     pub description: &'a str,
     pub pins: Vec<Pin<'a>>,
 }

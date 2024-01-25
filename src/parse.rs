@@ -1,6 +1,6 @@
 use crate::error::NetListParseError;
 use crate::sexpr::{self, SExpr};
-use crate::{Component, Net, NetList, Node, Part, Pin, PinType};
+use crate::{Component, Net, NetList, Node, Part, PartId, Pin, PinType};
 
 impl TryFrom<&str> for PinType {
     type Error = NetListParseError;
@@ -44,11 +44,12 @@ impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
             (libsource.value("lib")?, libsource.value("part")?)
         };
 
+        let part_id = PartId { lib, part };
+
         Ok(Self {
             reference,
             value: val,
-            lib,
-            part,
+            part_id,
             properties,
             footprint,
         })
@@ -73,6 +74,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let lib = value.value("lib")?;
         let part = value.value("part")?;
+        let part_id = PartId { lib, part };
         let description = value.value("description")?;
         let pins = value
             .child("pins")?
@@ -80,8 +82,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
             .map(|pin| pin.try_into())
             .collect::<Result<_, _>>()?;
         Ok(Part {
-            lib,
-            part,
+            part_id,
             description,
             pins,
         })
