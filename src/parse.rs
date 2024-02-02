@@ -78,11 +78,13 @@ impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
         let part = value.value("part")?;
         let part_id = PartId { lib, part };
         let description = value.value("description")?;
-        let pins = value
-            .child("pins")?
-            .children("pin")
-            .map(|pin| pin.try_into())
-            .collect::<Result<_, _>>()?;
+        let pins = if let Ok(pins) = value.child("pins") {
+            pins.children("pin")
+                .map(|pin| pin.try_into())
+                .collect::<Result<_, _>>()?
+        } else {
+            vec![]
+        };
         Ok(Part {
             part_id,
             description,
