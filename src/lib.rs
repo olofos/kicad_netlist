@@ -23,10 +23,20 @@ pub struct PartId<'a> {
     pub part: &'a str,
 }
 
+/// Reference designator
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RefDes<'a>(pub &'a str);
+
+/// Pin number
+///
+/// Note that the number is a string, not an actual number, because we need to support, eg, BGA packages with pin numbers A1, A2, A3 etc.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PinNum<'a>(pub &'a str);
+
 /// A component in the schematic
 #[derive(Debug, Clone)]
 pub struct Component<'a> {
-    pub ref_des: &'a str,
+    pub ref_des: RefDes<'a>,
     pub value: &'a str,
     pub part_id: PartId<'a>,
     pub properties: Vec<(&'a str, &'a str)>,
@@ -52,7 +62,7 @@ pub enum PinType {
 /// An indivudual pin
 #[derive(Debug, Clone)]
 pub struct Pin<'a> {
-    pub num: &'a str,
+    pub num: PinNum<'a>,
     pub name: &'a str,
     pub typ: PinType,
 }
@@ -68,8 +78,8 @@ pub struct Part<'a> {
 /// A node connects a net to a pin
 #[derive(Debug, Clone)]
 pub struct Node<'a> {
-    pub ref_des: &'a str,
-    pub pin: &'a str,
+    pub ref_des: RefDes<'a>,
+    pub num: PinNum<'a>,
     pub function: Option<&'a str>,
     pub typ: PinType,
 }
@@ -87,7 +97,7 @@ impl<'a> NetList<'a> {
     /// Remove a component from the netlist
     ///
     ///
-    pub fn remove_component(&mut self, ref_des: &str) {
+    pub fn remove_component(&mut self, ref_des: RefDes<'_>) {
         let Some(index) = self
             .components
             .iter()
@@ -141,13 +151,13 @@ mod tests {
         assert_eq!(netlist.parts.len(), 3);
         assert_eq!(netlist.nets.len(), 7);
 
-        netlist.remove_component("R1");
+        netlist.remove_component(RefDes("R1"));
 
         assert_eq!(netlist.components.len(), 3);
         assert_eq!(netlist.parts.len(), 2);
         assert_eq!(netlist.nets.len(), 7);
 
-        netlist.remove_component("U2");
+        netlist.remove_component(RefDes("U2"));
 
         assert_eq!(netlist.components.len(), 2);
         assert_eq!(netlist.parts.len(), 2);

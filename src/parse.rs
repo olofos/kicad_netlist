@@ -1,6 +1,6 @@
 use crate::error::NetListParseError;
 use crate::sexpr::{self, SExpr};
-use crate::{Component, Net, NetList, Node, Part, PartId, Pin, PinType};
+use crate::{Component, Net, NetList, Node, Part, PartId, Pin, PinNum, PinType, RefDes};
 
 impl TryFrom<&str> for PinType {
     type Error = NetListParseError;
@@ -26,7 +26,7 @@ impl TryFrom<&str> for PinType {
 impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
     type Error = NetListParseError;
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let ref_des = value.value("ref")?;
+        let ref_des = RefDes(value.value("ref")?);
         let val = value.value("value")?;
         let footprint = value.value("footprint").ok();
 
@@ -60,7 +60,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Pin<'a> {
     type Error = NetListParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let num = value.value("num")?;
+        let num = PinNum(value.value("num")?);
         let name = value.value("name")?;
         let typ = value.value("type")?.try_into()?;
 
@@ -93,14 +93,14 @@ impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
     type Error = NetListParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let ref_des = value.value("ref")?;
-        let pin = value.value("pin")?;
+        let ref_des = RefDes(value.value("ref")?);
+        let num = PinNum(value.value("pin")?);
         let function = value.value("pinfunction").ok();
         let typ = value.value("pintype")?.try_into()?;
 
         Ok(Node {
             ref_des,
-            pin,
+            num,
             function,
             typ,
         })
