@@ -77,7 +77,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
         let lib = value.value("lib")?;
         let part = value.value("part")?;
         let part_id = PartId { lib, part };
-        let description = value.value("description")?;
+        let description = value.value("description").unwrap_or_default();
         let pins = if let Ok(pins) = value.child("pins") {
             pins.children("pin")
                 .map(|pin| pin.try_into())
