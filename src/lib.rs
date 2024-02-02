@@ -72,36 +72,31 @@ pub struct Net<'a> {
 
 impl<'a> NetList<'a> {
     pub fn remove_component(&mut self, reference: &str) {
-        if let Some(index) = self
+        let Some(index) = self
             .components
             .iter()
             .position(|comp| comp.reference == reference)
-        {
-            let comp = &self.components[index];
+        else {
+            return;
+        };
 
-            for net in self.nets.iter_mut() {
-                net.nodes.retain(|node| node.reference != reference);
+        let PartId { lib, part } = &self.components[index].part_id;
+        let part_id = PartId { lib, part };
+
+        self.components.remove(index);
+
+        for net in self.nets.iter_mut() {
+            net.nodes.retain(|node| node.reference != reference);
+        }
+
+        self.nets.retain(|net| !net.nodes.is_empty());
+
+        let components_with_same_part_id = self.components.iter().filter(|c| c.part_id == part_id);
+
+        if components_with_same_part_id.count() == 0 {
+            if let Some(index) = self.parts.iter().position(|p| p.part_id == part_id) {
+                self.parts.remove(index);
             }
-
-            self.nets.retain(|net| !net.nodes.is_empty());
-
-            if self
-                .components
-                .iter()
-                .filter(|c| c.part_id == comp.part_id)
-                .count()
-                == 1
-            {
-                if let Some(part_index) = self
-                    .parts
-                    .iter()
-                    .position(|part| comp.part_id == part.part_id)
-                {
-                    self.parts.remove(part_index);
-                }
-            }
-
-            self.components.remove(index);
         }
     }
 }
