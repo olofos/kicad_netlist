@@ -17,7 +17,7 @@ pub struct NetList<'a> {
 }
 
 /// Part identifier
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PartId<'a> {
     pub lib: &'a str,
     pub part: &'a str,
