@@ -26,7 +26,7 @@ impl TryFrom<&str> for PinType {
 impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
     type Error = NetListParseError;
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let reference = value.value("ref")?;
+        let ref_des = value.value("ref")?;
         let val = value.value("value")?;
         let footprint = value.value("footprint").ok();
 
@@ -47,7 +47,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
         let part_id = PartId { lib, part };
 
         Ok(Self {
-            reference,
+            ref_des,
             value: val,
             part_id,
             properties,
@@ -93,13 +93,13 @@ impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
     type Error = NetListParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let reference = value.value("ref")?;
+        let ref_des = value.value("ref")?;
         let pin = value.value("pin")?;
         let function = value.value("pinfunction").ok();
         let typ = value.value("pintype")?.try_into()?;
 
         Ok(Node {
-            reference,
+            ref_des,
             pin,
             function,
             typ,

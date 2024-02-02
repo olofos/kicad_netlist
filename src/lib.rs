@@ -26,7 +26,7 @@ pub struct PartId<'a> {
 /// A component in the schematic
 #[derive(Debug, Clone)]
 pub struct Component<'a> {
-    pub reference: &'a str,
+    pub ref_des: &'a str,
     pub value: &'a str,
     pub part_id: PartId<'a>,
     pub properties: Vec<(&'a str, &'a str)>,
@@ -68,7 +68,7 @@ pub struct Part<'a> {
 /// A node connects a net to a pin
 #[derive(Debug, Clone)]
 pub struct Node<'a> {
-    pub reference: &'a str,
+    pub ref_des: &'a str,
     pub pin: &'a str,
     pub function: Option<&'a str>,
     pub typ: PinType,
@@ -87,11 +87,11 @@ impl<'a> NetList<'a> {
     /// Remove a component from the netlist
     ///
     ///
-    pub fn remove_component(&mut self, reference: &str) {
+    pub fn remove_component(&mut self, ref_des: &str) {
         let Some(index) = self
             .components
             .iter()
-            .position(|comp| comp.reference == reference)
+            .position(|comp| comp.ref_des == ref_des)
         else {
             return;
         };
@@ -102,7 +102,7 @@ impl<'a> NetList<'a> {
         self.components.remove(index);
 
         for net in self.nets.iter_mut() {
-            net.nodes.retain(|node| node.reference != reference);
+            net.nodes.retain(|node| node.ref_des != ref_des);
         }
 
         self.nets.retain(|net| !net.nodes.is_empty());
