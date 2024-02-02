@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+/// Netlist parse errors
 #[derive(Error, Debug)]
 pub enum NetListParseError {
     #[error("SExpr {0} not found")]

@@ -1,9 +1,14 @@
+//! # Read and manipulate KiCad netlist files
+//!
+//! The netlist is parsed from a provided `str` or `String` reference, and all data is stored as references into that string.
+
 mod error;
 mod parse;
 mod sexpr;
 
 pub use error::NetListParseError;
 
+/// The full netlist
 #[derive(Debug, Clone)]
 pub struct NetList<'a> {
     pub components: Vec<Component<'a>>,
@@ -11,12 +16,14 @@ pub struct NetList<'a> {
     pub nets: Vec<Net<'a>>,
 }
 
+/// Part identifier
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartId<'a> {
     pub lib: &'a str,
     pub part: &'a str,
 }
 
+/// A component in the schematic
 #[derive(Debug, Clone)]
 pub struct Component<'a> {
     pub reference: &'a str,
@@ -26,6 +33,7 @@ pub struct Component<'a> {
     pub footprint: Option<&'a str>,
 }
 
+/// The electrical type of the pin
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PinType {
     Input,
@@ -41,6 +49,7 @@ pub enum PinType {
     Unconnected,
 }
 
+/// An indivudual pin
 #[derive(Debug, Clone)]
 pub struct Pin<'a> {
     pub num: &'a str,
@@ -48,6 +57,7 @@ pub struct Pin<'a> {
     pub typ: PinType,
 }
 
+/// A part
 #[derive(Debug, Clone)]
 pub struct Part<'a> {
     pub part_id: PartId<'a>,
@@ -55,6 +65,7 @@ pub struct Part<'a> {
     pub pins: Vec<Pin<'a>>,
 }
 
+/// A node connects a net to a pin
 #[derive(Debug, Clone)]
 pub struct Node<'a> {
     pub reference: &'a str,
@@ -63,14 +74,19 @@ pub struct Node<'a> {
     pub typ: PinType,
 }
 
+/// A net
 #[derive(Debug, Clone)]
 pub struct Net<'a> {
+    /// A unique id for the net
     pub code: &'a str,
     pub name: &'a str,
     pub nodes: Vec<Node<'a>>,
 }
 
 impl<'a> NetList<'a> {
+    /// Remove a component from the netlist
+    ///
+    ///
     pub fn remove_component(&mut self, reference: &str) {
         let Some(index) = self
             .components
