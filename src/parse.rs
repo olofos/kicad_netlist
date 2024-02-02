@@ -6,6 +6,9 @@ impl TryFrom<&str> for PinType {
     type Error = NetListParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.ends_with("no_connect") {
+            return Ok(Self::Unconnected);
+        }
         match value {
             "input" => Ok(Self::Input),
             "output" => Ok(Self::Output),
@@ -17,7 +20,6 @@ impl TryFrom<&str> for PinType {
             "power_out" => Ok(Self::PowerOutput),
             "open_collector" => Ok(Self::OpenCollector),
             "open_emitter" => Ok(Self::OpenEmitter),
-            "no_connect" => Ok(Self::Unconnected),
             s => Err(NetListParseError::UnknownPinType(s.to_owned())),
         }
     }
