@@ -94,9 +94,22 @@ pub struct Net<'a> {
 }
 
 impl<'a> NetList<'a> {
+    pub fn net(&self, ref_des: RefDes, num: PinNum) -> Option<&Net<'a>> {
+        for net in &self.nets {
+            for node in &net.nodes {
+                if node.ref_des == ref_des && node.num == num {
+                    return Some(net);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn part(&self, comp: &Component) -> Option<&Part<'a>> {
+        self.parts.iter().find(|part| part.part_id == comp.part_id)
+    }
+
     /// Remove a component from the netlist
-    ///
-    ///
     pub fn remove_component(&mut self, ref_des: RefDes<'_>) {
         let Some(index) = self
             .components
