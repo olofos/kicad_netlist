@@ -6,6 +6,8 @@ mod error;
 mod parse;
 mod sexpr;
 
+use std::collections::HashSet;
+
 pub use error::NetListParseError;
 
 /// The full netlist
@@ -138,6 +140,39 @@ impl<'a> NetList<'a> {
             }
         }
     }
+
+    /// Remove components from the netlist
+    pub fn remove_components(&mut self, ref_des_list: &Vec<RefDes<'_>>) {
+        let removed_part_ids: HashSet<_> =
+            HashSet::from_iter(self.components.iter().filter_map(|comp| {
+                if ref_des_list.contains(&comp.ref_des) {
+                    Some(comp.part_id)
+                } else {
+                    None
+                }
+            }));
+
+        self.components
+            .retain(|comp| !ref_des_list.contains(&comp.ref_des));
+
+        for net in self.nets.iter_mut() {
+            net.nodes
+                .retain(|node| !ref_des_list.contains(&node.ref_des));
+        }
+
+        self.nets.retain(|net| !net.nodes.is_empty());
+
+        for part_id in removed_part_ids {
+            let components_with_same_part_id =
+                self.components.iter().filter(|c| c.part_id == part_id);
+
+            if components_with_same_part_id.count() == 0 {
+                if let Some(index) = self.parts.iter().position(|p| p.part_id == part_id) {
+                    self.parts.remove(index);
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -171,6 +206,22 @@ mod tests {
         assert_eq!(netlist.nets.len(), 7);
 
         netlist.remove_component(RefDes("U2"));
+
+        assert_eq!(netlist.components.len(), 2);
+        assert_eq!(netlist.parts.len(), 2);
+        assert_eq!(netlist.nets.len(), 6);
+    }
+
+    #[test]
+    fn remove_components_works() {
+        let input = test_data!("kvt.net");
+        let mut netlist: NetList = (&input).try_into().unwrap();
+
+        assert_eq!(netlist.components.len(), 4);
+        assert_eq!(netlist.parts.len(), 3);
+        assert_eq!(netlist.nets.len(), 7);
+
+        netlist.remove_components(&vec![RefDes("R1"), RefDes("U2")]);
 
         assert_eq!(netlist.components.len(), 2);
         assert_eq!(netlist.parts.len(), 2);
