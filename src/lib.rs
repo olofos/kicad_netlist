@@ -17,20 +17,20 @@ pub struct NetList<'a> {
 }
 
 /// Part identifier
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId<'a> {
     pub lib: &'a str,
     pub part: &'a str,
 }
 
 /// Reference designator
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RefDes<'a>(pub &'a str);
 
 /// Pin number
 ///
 /// Note that the number is a string, not an actual number, because we need to support, eg, BGA packages with pin numbers A1, A2, A3 etc.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PinNum<'a>(pub &'a str);
 
 /// A component in the schematic
