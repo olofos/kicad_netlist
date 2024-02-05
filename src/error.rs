@@ -11,4 +11,10 @@ pub enum NetListParseError {
     UnknownPinType(String),
     #[error("Nom error {0}")]
     ParseError(#[from] nom::error::Error<String>),
+    #[error("Part {0} not found")]
+    MissingPart(String),
+    #[error("No net found for component {0}, pin {1}")]
+    MissingNet(String, String),
+    #[error("Unused part {0}")]
+    UnusedPart(String),
 }
