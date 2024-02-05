@@ -4,6 +4,8 @@
 
 mod error;
 mod parse;
+mod parse_raw;
+pub mod raw;
 mod sexpr;
 
 use std::collections::HashSet;
@@ -43,10 +45,11 @@ pub struct Component<'a> {
     pub part_id: PartId<'a>,
     pub properties: Vec<(&'a str, &'a str)>,
     pub footprint: Option<&'a str>,
+    pub pins: Vec<ComponentPin<'a>>,
 }
 
 /// The electrical type of the pin
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PinType {
     Input,
     Output,
@@ -61,9 +64,18 @@ pub enum PinType {
     Unconnected,
 }
 
-/// An indivudual pin
+/// A pin of an individual component
 #[derive(Debug, Clone)]
-pub struct Pin<'a> {
+pub struct ComponentPin<'a> {
+    pub num: PinNum<'a>,
+    pub name: &'a str,
+    pub typ: PinType,
+    pub net: &'a str,
+}
+
+/// A pin of a part
+#[derive(Debug, Clone)]
+pub struct PartPin<'a> {
     pub num: PinNum<'a>,
     pub name: &'a str,
     pub typ: PinType,
@@ -74,7 +86,8 @@ pub struct Pin<'a> {
 pub struct Part<'a> {
     pub part_id: PartId<'a>,
     pub description: &'a str,
-    pub pins: Vec<Pin<'a>>,
+    pub pins: Vec<PartPin<'a>>,
+    pub components: Vec<RefDes<'a>>,
 }
 
 /// A node connects a net to a pin
@@ -95,7 +108,28 @@ pub struct Net<'a> {
     pub nodes: Vec<Node<'a>>,
 }
 
+impl<'a> TryFrom<&'a str> for NetList<'a> {
+    type Error = NetListParseError;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        let raw: raw::NetList = value.try_into()?;
+        raw.try_into()
+    }
+}
+
+impl<'a> TryFrom<&'a String> for NetList<'a> {
+    type Error = NetListParseError;
+
+    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
+        value.as_str().try_into()
+    }
+}
+
 impl<'a> NetList<'a> {
+    pub fn parse(input: &'a str) -> Result<NetList<'a>, NetListParseError> {
+        input.try_into()
+    }
+
     pub fn net(&self, ref_des: RefDes, num: PinNum) -> Option<&Net<'a>> {
         for net in &self.nets {
             for node in &net.nodes {
@@ -132,10 +166,9 @@ impl<'a> NetList<'a> {
 
         self.nets.retain(|net| !net.nodes.is_empty());
 
-        let components_with_same_part_id = self.components.iter().filter(|c| c.part_id == part_id);
-
-        if components_with_same_part_id.count() == 0 {
-            if let Some(index) = self.parts.iter().position(|p| p.part_id == part_id) {
+        if let Some(index) = self.parts.iter().position(|p| p.part_id == part_id) {
+            self.parts[index].components.retain(|r| *r != ref_des);
+            if self.parts[index].components.is_empty() {
                 self.parts.remove(index);
             }
         }
@@ -163,11 +196,11 @@ impl<'a> NetList<'a> {
         self.nets.retain(|net| !net.nodes.is_empty());
 
         for part_id in removed_part_ids {
-            let components_with_same_part_id =
-                self.components.iter().filter(|c| c.part_id == part_id);
-
-            if components_with_same_part_id.count() == 0 {
-                if let Some(index) = self.parts.iter().position(|p| p.part_id == part_id) {
+            if let Some(index) = self.parts.iter().position(|p| p.part_id == part_id) {
+                self.parts[index]
+                    .components
+                    .retain(|r| !ref_des_list.contains(r));
+                if self.parts[index].components.is_empty() {
                     self.parts.remove(index);
                 }
             }

@@ -1,6 +1,7 @@
-use crate::error::NetListParseError;
-use crate::sexpr::{self, SExpr};
-use crate::{Component, Net, NetList, Node, Part, PartId, Pin, PinNum, PinType, RefDes};
+use crate::{
+    raw, Component, ComponentPin, Net, NetList, NetListParseError, Node, Part, PartId, PartPin,
+    PinNum, PinType, RefDes,
+};
 
 impl TryFrom<&str> for PinType {
     type Error = NetListParseError;
@@ -25,83 +26,80 @@ impl TryFrom<&str> for PinType {
     }
 }
 
-impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
+impl<'a> TryFrom<raw::Pin<'a>> for PartPin<'a> {
     type Error = NetListParseError;
-    fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let ref_des = RefDes(value.value("ref")?);
-        let val = value.value("value")?;
-        let footprint = value.value("footprint").ok();
 
-        let properties = value
-            .children("property")
-            .map(|prop| {
-                let name = prop.value("name")?;
-                let value = prop.value("value")?;
-                Ok((name, value))
-            })
-            .collect::<Result<_, Self::Error>>()?;
-
-        let (lib, part) = {
-            let libsource = value.child("libsource")?;
-            (libsource.value("lib")?, libsource.value("part")?)
-        };
-
-        let part_id = PartId { lib, part };
-
-        Ok(Self {
-            ref_des,
-            value: val,
-            part_id,
-            properties,
-            footprint,
-        })
+    fn try_from(value: raw::Pin<'a>) -> Result<Self, Self::Error> {
+        let raw::Pin { num, name, typ } = value;
+        let num = PinNum(num);
+        let typ = typ.try_into()?;
+        Ok(PartPin { num, name, typ })
     }
 }
 
-impl<'a> TryFrom<&SExpr<'a>> for Pin<'a> {
+impl<'a> TryFrom<raw::Part<'a>> for Part<'a> {
     type Error = NetListParseError;
 
-    fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let num = PinNum(value.value("num")?);
-        let name = value.value("name")?;
-        let typ = value.value("type")?.try_into()?;
-
-        Ok(Pin { num, name, typ })
-    }
-}
-
-impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
-    type Error = NetListParseError;
-
-    fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let lib = value.value("lib")?;
-        let part = value.value("part")?;
+    fn try_from(value: raw::Part<'a>) -> Result<Self, Self::Error> {
+        let raw::Part {
+            part,
+            lib,
+            description,
+            pins,
+        } = value;
         let part_id = PartId { lib, part };
-        let description = value.value("description").unwrap_or_default();
-        let pins = if let Ok(pins) = value.child("pins") {
-            pins.children("pin")
-                .map(|pin| pin.try_into())
-                .collect::<Result<_, _>>()?
-        } else {
-            vec![]
-        };
+        let pins = pins
+            .into_iter()
+            .map(|pin| pin.try_into())
+            .collect::<Result<_, _>>()?;
         Ok(Part {
             part_id,
             description,
             pins,
+            components: vec![],
         })
     }
 }
 
-impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
+impl<'a> TryFrom<raw::Component<'a>> for Component<'a> {
     type Error = NetListParseError;
 
-    fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let ref_des = RefDes(value.value("ref")?);
-        let num = PinNum(value.value("pin")?);
-        let function = value.value("pinfunction").ok();
-        let typ = value.value("pintype")?.try_into()?;
+    fn try_from(value: raw::Component<'a>) -> Result<Self, Self::Error> {
+        let raw::Component {
+            ref_des,
+            value,
+            part,
+            lib,
+            properties,
+            footprint,
+        } = value;
+        let ref_des = RefDes(ref_des);
+        let part_id = PartId { lib, part };
 
+        Ok(Component {
+            ref_des,
+            value,
+            part_id,
+            properties,
+            footprint,
+            pins: vec![],
+        })
+    }
+}
+
+impl<'a> TryFrom<raw::Node<'a>> for Node<'a> {
+    type Error = NetListParseError;
+
+    fn try_from(value: raw::Node<'a>) -> Result<Self, Self::Error> {
+        let raw::Node {
+            ref_des,
+            num,
+            function,
+            typ,
+        } = value;
+        let ref_des = RefDes(ref_des);
+        let num = PinNum(num);
+        let typ = typ.try_into()?;
         Ok(Node {
             ref_des,
             num,
@@ -111,142 +109,104 @@ impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
     }
 }
 
-impl<'a> TryFrom<&SExpr<'a>> for Net<'a> {
+impl<'a> TryFrom<raw::Net<'a>> for Net<'a> {
     type Error = NetListParseError;
 
-    fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let code = value.value("code")?;
-        let name = value.value("name")?;
-        let nodes = value
-            .children("node")
+    fn try_from(value: raw::Net<'a>) -> Result<Self, Self::Error> {
+        let raw::Net { code, name, nodes } = value;
+        let nodes = nodes
+            .into_iter()
             .map(|node| node.try_into())
-            .collect::<Result<Vec<_>, Self::Error>>()?;
+            .collect::<Result<_, _>>()?;
         Ok(Net { code, name, nodes })
     }
 }
 
-impl<'a> TryFrom<&SExpr<'a>> for NetList<'a> {
+impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
     type Error = NetListParseError;
 
-    fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
-        let components: Vec<Component<'a>> = value
-            .child("components")?
-            .children("comp")
+    fn try_from(value: raw::NetList<'a>) -> Result<Self, Self::Error> {
+        let raw::NetList {
+            components,
+            parts,
+            nets,
+        } = value;
+
+        let mut components: Vec<Component> = components
+            .into_iter()
             .map(|comp| comp.try_into())
             .collect::<Result<_, _>>()?;
 
-        let parts = value
-            .child("libparts")?
-            .children("libpart")
+        let mut parts: Vec<Part> = parts
+            .into_iter()
             .map(|part| part.try_into())
             .collect::<Result<_, _>>()?;
 
-        let nets = value
-            .child("nets")?
-            .children("net")
+        let nets: Vec<Net> = nets
+            .into_iter()
             .map(|net| net.try_into())
             .collect::<Result<_, _>>()?;
+
+        for comp in components.iter_mut() {
+            let part = parts.iter().find(|p| p.part_id == comp.part_id).ok_or(
+                NetListParseError::MissingPart(format!(
+                    "{}/{}",
+                    comp.part_id.lib, comp.part_id.part
+                )),
+            )?;
+            comp.pins = part
+                .pins
+                .iter()
+                .map(|pin| {
+                    let PartPin { num, name, typ } = pin;
+                    let num = *num;
+                    let typ = *typ;
+                    let net = nets
+                        .iter()
+                        .find(|net| {
+                            net.nodes
+                                .iter()
+                                .find(|node| node.ref_des == comp.ref_des && node.num == num)
+                                .is_some()
+                        })
+                        .ok_or(NetListParseError::MissingNet(
+                            comp.ref_des.0.to_string(),
+                            num.0.to_string(),
+                        ))?;
+                    let net = net.name;
+                    Ok(ComponentPin {
+                        num,
+                        name,
+                        typ,
+                        net,
+                    })
+                })
+                .collect::<Result<_, NetListParseError>>()?;
+        }
+
+        for part in parts.iter_mut() {
+            part.components = components
+                .iter()
+                .filter_map(|comp| {
+                    if comp.part_id == part.part_id {
+                        Some(comp.ref_des)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if part.components.is_empty() {
+                return Err(NetListParseError::UnusedPart(format!(
+                    "{}/{}",
+                    part.part_id.lib, part.part_id.part
+                )));
+            }
+        }
 
         Ok(NetList {
             components,
             parts,
             nets,
         })
-    }
-}
-
-impl<'a> TryFrom<SExpr<'a>> for NetList<'a> {
-    type Error = NetListParseError;
-
-    fn try_from(value: SExpr<'a>) -> Result<Self, Self::Error> {
-        (&value).try_into()
-    }
-}
-
-impl<'a> TryFrom<&'a str> for NetList<'a> {
-    type Error = NetListParseError;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        sexpr::parse(value)?.try_into()
-    }
-}
-
-impl<'a> TryFrom<&'a String> for NetList<'a> {
-    type Error = NetListParseError;
-
-    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
-        value.as_str().try_into()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    macro_rules! test_data {
-        ($fname:expr) => {
-            std::fs::read_to_string(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/resources/test/",
-                $fname
-            ))
-            .unwrap()
-        };
-    }
-
-    #[test]
-    fn can_parse_comp() {
-        let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
-
-        let comps: Vec<Component> = root
-            .child("components")
-            .unwrap()
-            .children("comp")
-            .map(|expr| expr.try_into().unwrap())
-            .collect();
-
-        assert_eq!(comps.len(), 4);
-    }
-
-    #[test]
-    fn can_parse_part() {
-        let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
-
-        let parts: Vec<Part> = root
-            .child("libparts")
-            .unwrap()
-            .children("libpart")
-            .map(|expr| expr.try_into().unwrap())
-            .collect();
-
-        assert_eq!(parts.len(), 3);
-    }
-
-    #[test]
-    fn can_parse_net() {
-        let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
-
-        let nets: Vec<Net> = root
-            .child("nets")
-            .unwrap()
-            .children("net")
-            .map(|expr| expr.try_into().unwrap())
-            .collect();
-
-        assert_eq!(nets.len(), 7);
-    }
-
-    #[test]
-    fn can_parse_netlist() {
-        let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
-        let netlist: NetList = root.try_into().unwrap();
-
-        assert_eq!(netlist.components.len(), 4);
-        assert_eq!(netlist.parts.len(), 3);
-        assert_eq!(netlist.nets.len(), 7);
     }
 }
