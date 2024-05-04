@@ -160,7 +160,7 @@ impl<'a> NetList<'a> {
     }
 
     /// Remove components from the netlist
-    pub fn remove_components(&mut self, ref_des_list: &Vec<RefDes<'_>>) {
+    pub fn remove_components(&mut self, ref_des_list: &[RefDes<'_>]) {
         let removed_part_ids: HashSet<_> =
             HashSet::from_iter(self.components.iter().filter_map(|comp| {
                 if ref_des_list.contains(&comp.ref_des) {

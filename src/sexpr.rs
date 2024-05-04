@@ -54,9 +54,7 @@ impl<'a, 'b, 'c> Iterator for LabeledChildIterator<'a, 'b, 'c> {
     type Item = &'b SExpr<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(ref mut iter) = self.iter else {
-            return None;
-        };
+        let iter = self.iter.as_mut()?;
         loop {
             let item = iter.next();
             match &item {

@@ -166,8 +166,7 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                         .find(|net| {
                             net.nodes
                                 .iter()
-                                .find(|node| node.ref_des == comp.ref_des && node.num == num)
-                                .is_some()
+                                .any(|node| node.ref_des == comp.ref_des && node.num == num)
                         })
                         .ok_or(NetListParseError::MissingNet(
                             comp.ref_des.0.to_string(),
