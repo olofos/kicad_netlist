@@ -11,7 +11,7 @@ use nom::{
 
 #[derive(Debug)]
 pub enum SExpr<'a> {
-    SExpr(&'a str, Vec<SExpr<'a>>),
+    SExpr(&'a str, Box<[SExpr<'a>]>),
     String(&'a str),
 }
 
@@ -98,7 +98,7 @@ fn sexpr(i: &str) -> IResult<&str, SExpr> {
             tuple((label, many0(alt((string, sexpr))))),
             tuple((tag(")"), multispace0)),
         ),
-        |(label, chilren)| SExpr::SExpr(label, chilren),
+        |(label, chilren)| SExpr::SExpr(label, chilren.into_boxed_slice()),
     )(i)
 }
 
