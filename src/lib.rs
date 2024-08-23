@@ -245,4 +245,11 @@ mod tests {
         assert_eq!(netlist.parts.len(), 2);
         assert_eq!(netlist.nets.len(), 6);
     }
+
+    #[test]
+    fn test_load_old_netlist() -> Result<(), NetListParseError> {
+        let input = test_data!("old-vD.net");
+        let _: NetList = (&input).try_into()?;
+        Ok(())
+    }
 }
