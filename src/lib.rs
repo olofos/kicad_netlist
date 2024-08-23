@@ -249,7 +249,11 @@ mod tests {
     #[test]
     fn test_load_old_netlist() -> Result<(), NetListParseError> {
         let input = test_data!("old-vD.net");
-        let _: NetList = (&input).try_into()?;
-        Ok(())
+        let result: Result<NetList, _> = (&input).try_into();
+        match result {
+            Err(NetListParseError::UnknownVersion(version)) if version == "D" => Ok(()),
+            Err(err) => Err(err),
+            Ok(_) => panic!("Expected an error"),
+        }
     }
 }

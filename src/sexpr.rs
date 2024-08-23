@@ -9,7 +9,7 @@ use nom::{
     Finish, IResult,
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SExpr<'a> {
     SExpr(&'a str, Box<[SExpr<'a>]>),
     String(&'a str),
@@ -80,6 +80,7 @@ fn string(i: &str) -> IResult<&str, SExpr> {
                     escaped(none_of(r#"\""#), '\\', one_of(r#""nfrtb\"#)),
                     tag("\""),
                 ),
+                recognize(many1(none_of("\"\n\t ()"))),
             )),
             multispace0,
         ),
@@ -120,6 +121,20 @@ mod tests {
             ))
             .unwrap()
         };
+    }
+
+    #[test]
+    fn can_parse_string() {
+        for (i, e) in [
+            (r#""""#, ""),
+            (r#""a""#, "a"),
+            (r#""a b""#, "a b"),
+            ("a", "a"),
+        ] {
+            let (i, r) = string(i).unwrap();
+            assert_eq!(i, "");
+            assert_eq!(r, SExpr::String(e));
+        }
     }
 
     #[test]
