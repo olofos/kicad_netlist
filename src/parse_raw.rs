@@ -105,6 +105,11 @@ impl<'a> TryFrom<&SExpr<'a>> for NetList<'a> {
     type Error = NetListParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
+        let version = value.value("version")?;
+        if version != "E" {
+            return Err(NetListParseError::UnknownVersion(version.to_owned()));
+        };
+
         let components: Vec<Component<'a>> = value
             .child("components")?
             .children("comp")

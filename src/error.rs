@@ -17,4 +17,6 @@ pub enum NetListParseError {
     MissingNet(String, String),
     #[error("Unused part {0}")]
     UnusedPart(String),
+    #[error("Unknown version {0}")]
+    UnknownVersion(String),
 }
