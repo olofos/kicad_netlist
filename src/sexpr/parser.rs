@@ -113,10 +113,9 @@ impl<'a> TryFrom<&'a str> for SExpr<'a> {
     type Error = ParseError;
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
-        let mut parser = Parser::new(input);
-        let sexpr = parser.parse_sexpr()?;
-        let sexpr = sexpr.into_sexpr(input);
-        Ok(sexpr)
+        Parser::new(input)
+            .parse_sexpr()
+            .map(|s| s.into_sexpr(input))
     }
 }
 
