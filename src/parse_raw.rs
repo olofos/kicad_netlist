@@ -1,9 +1,9 @@
-use crate::error::NetListParseError;
+use crate::error::ParseError;
 use crate::raw::{Component, Net, NetList, Node, Part, Pin};
-use crate::sexpr::{self, SExpr};
+use crate::sexpr::SExpr;
 
 impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let ref_des = value.value("ref")?;
         let val = value.value("value")?;
@@ -35,7 +35,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Component<'a> {
 }
 
 impl<'a> TryFrom<&SExpr<'a>> for Pin<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let num = value.value("num")?;
@@ -47,7 +47,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Pin<'a> {
 }
 
 impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let lib = value.value("lib")?;
@@ -70,7 +70,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Part<'a> {
 }
 
 impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let ref_des = value.value("ref")?;
@@ -88,7 +88,7 @@ impl<'a> TryFrom<&SExpr<'a>> for Node<'a> {
 }
 
 impl<'a> TryFrom<&SExpr<'a>> for Net<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let code = value.value("code")?;
@@ -102,12 +102,12 @@ impl<'a> TryFrom<&SExpr<'a>> for Net<'a> {
 }
 
 impl<'a> TryFrom<&SExpr<'a>> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
         let version = value.value("version")?;
         if version != "E" {
-            return Err(NetListParseError::UnknownVersion(version.to_owned()));
+            return Err(ParseError::UnknownVersion(version.to_owned()));
         };
 
         let components: Vec<Component<'a>> = value
@@ -137,7 +137,7 @@ impl<'a> TryFrom<&SExpr<'a>> for NetList<'a> {
 }
 
 impl<'a> TryFrom<SExpr<'a>> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: SExpr<'a>) -> Result<Self, Self::Error> {
         (&value).try_into()
@@ -145,15 +145,15 @@ impl<'a> TryFrom<SExpr<'a>> for NetList<'a> {
 }
 
 impl<'a> TryFrom<&'a str> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        sexpr::parse(value)?.try_into()
+        SExpr::try_from(value)?.try_into()
     }
 }
 
 impl<'a> TryFrom<&'a String> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &'a String) -> Result<Self, Self::Error> {
         value.as_str().try_into()
@@ -178,9 +178,9 @@ mod tests {
     #[test]
     fn can_parse_comp() {
         let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
+        let root = SExpr::try_from(i).unwrap();
 
-        let comps: Vec<Component> = root
+        let comps: Vec<Component> = dbg!(root)
             .child("components")
             .unwrap()
             .children("comp")
@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn can_parse_part() {
         let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
+        let root = SExpr::try_from(i).unwrap();
 
         let parts: Vec<Part> = root
             .child("libparts")
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn can_parse_net() {
         let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
+        let root = SExpr::try_from(i).unwrap();
 
         let nets: Vec<Net> = root
             .child("nets")
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn can_parse_netlist() {
         let i = &test_data!("kvt.net");
-        let root = sexpr::parse(i).unwrap();
+        let root = SExpr::try_from(i).unwrap();
         let netlist: NetList = root.try_into().unwrap();
 
         assert_eq!(netlist.components.len(), 4);

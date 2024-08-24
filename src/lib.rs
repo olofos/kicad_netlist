@@ -10,7 +10,7 @@ mod sexpr;
 
 use std::collections::HashSet;
 
-pub use error::NetListParseError;
+pub use error::ParseError;
 
 /// The full netlist
 #[derive(Debug, Clone)]
@@ -109,7 +109,7 @@ pub struct Net<'a> {
 }
 
 impl<'a> TryFrom<&'a str> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let raw: raw::NetList = value.try_into()?;
@@ -118,7 +118,7 @@ impl<'a> TryFrom<&'a str> for NetList<'a> {
 }
 
 impl<'a> TryFrom<&'a String> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &'a String) -> Result<Self, Self::Error> {
         value.as_str().try_into()
@@ -126,7 +126,7 @@ impl<'a> TryFrom<&'a String> for NetList<'a> {
 }
 
 impl<'a> NetList<'a> {
-    pub fn parse(input: &'a str) -> Result<NetList<'a>, NetListParseError> {
+    pub fn parse(input: &'a str) -> Result<NetList<'a>, ParseError> {
         input.try_into()
     }
 
@@ -247,11 +247,11 @@ mod tests {
     }
 
     #[test]
-    fn test_load_old_netlist() -> Result<(), NetListParseError> {
+    fn test_load_old_netlist() -> Result<(), ParseError> {
         let input = test_data!("old-vD.net");
         let result: Result<NetList, _> = (&input).try_into();
         match result {
-            Err(NetListParseError::UnknownVersion(version)) if version == "D" => Ok(()),
+            Err(ParseError::UnknownVersion(version)) if version == "D" => Ok(()),
             Err(err) => Err(err),
             Ok(_) => panic!("Expected an error"),
         }

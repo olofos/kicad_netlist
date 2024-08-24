@@ -1,16 +1,23 @@
 use thiserror::Error;
 
-/// Netlist parse errors
 #[derive(Error, Debug)]
-pub enum NetListParseError {
+pub enum ParseError {
+    #[error("Unexpected EOF at {at:?}")]
+    UnexpectedEof { at: logos::Span },
+    #[error("Expected {expected} but found {found}")]
+    UnexpectedToken {
+        expected: String,
+        found: String,
+        at: logos::Span,
+    },
+    #[error("Unexpected token {found} at {at:?}")]
+    UnknownToken { found: String, at: logos::Span },
     #[error("SExpr {0} not found")]
     MissingChild(String),
     #[error("Value not found")]
     MissingValue(),
     #[error("Unknown pin type {0}")]
     UnknownPinType(String),
-    #[error("Nom error {0}")]
-    ParseError(#[from] nom::error::Error<String>),
     #[error("Part {0} not found")]
     MissingPart(String),
     #[error("No net found for component {0}, pin {1}")]

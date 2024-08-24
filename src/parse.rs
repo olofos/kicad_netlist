@@ -1,10 +1,10 @@
 use crate::{
-    raw, Component, ComponentPin, Net, NetList, NetListParseError, Node, Part, PartId, PartPin,
-    PinNum, PinType, RefDes,
+    raw, Component, ComponentPin, Net, NetList, Node, ParseError, Part, PartId, PartPin, PinNum,
+    PinType, RefDes,
 };
 
 impl TryFrom<&str> for PinType {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.ends_with("no_connect") {
@@ -21,13 +21,13 @@ impl TryFrom<&str> for PinType {
             "power_out" => Ok(Self::PowerOutput),
             "open_collector" => Ok(Self::OpenCollector),
             "open_emitter" => Ok(Self::OpenEmitter),
-            s => Err(NetListParseError::UnknownPinType(s.to_owned())),
+            s => Err(ParseError::UnknownPinType(s.to_owned())),
         }
     }
 }
 
 impl<'a> TryFrom<raw::Pin<'a>> for PartPin<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: raw::Pin<'a>) -> Result<Self, Self::Error> {
         let raw::Pin { num, name, typ } = value;
@@ -38,7 +38,7 @@ impl<'a> TryFrom<raw::Pin<'a>> for PartPin<'a> {
 }
 
 impl<'a> TryFrom<raw::Part<'a>> for Part<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: raw::Part<'a>) -> Result<Self, Self::Error> {
         let raw::Part {
@@ -62,7 +62,7 @@ impl<'a> TryFrom<raw::Part<'a>> for Part<'a> {
 }
 
 impl<'a> TryFrom<raw::Component<'a>> for Component<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: raw::Component<'a>) -> Result<Self, Self::Error> {
         let raw::Component {
@@ -88,7 +88,7 @@ impl<'a> TryFrom<raw::Component<'a>> for Component<'a> {
 }
 
 impl<'a> TryFrom<raw::Node<'a>> for Node<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: raw::Node<'a>) -> Result<Self, Self::Error> {
         let raw::Node {
@@ -110,7 +110,7 @@ impl<'a> TryFrom<raw::Node<'a>> for Node<'a> {
 }
 
 impl<'a> TryFrom<raw::Net<'a>> for Net<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: raw::Net<'a>) -> Result<Self, Self::Error> {
         let raw::Net { code, name, nodes } = value;
@@ -123,7 +123,7 @@ impl<'a> TryFrom<raw::Net<'a>> for Net<'a> {
 }
 
 impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
-    type Error = NetListParseError;
+    type Error = ParseError;
 
     fn try_from(value: raw::NetList<'a>) -> Result<Self, Self::Error> {
         let raw::NetList {
@@ -148,12 +148,14 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
             .collect::<Result<_, _>>()?;
 
         for comp in components.iter_mut() {
-            let part = parts.iter().find(|p| p.part_id == comp.part_id).ok_or(
-                NetListParseError::MissingPart(format!(
-                    "{}/{}",
-                    comp.part_id.lib, comp.part_id.part
-                )),
-            )?;
+            let part =
+                parts
+                    .iter()
+                    .find(|p| p.part_id == comp.part_id)
+                    .ok_or(ParseError::MissingPart(format!(
+                        "{}/{}",
+                        comp.part_id.lib, comp.part_id.part
+                    )))?;
             comp.pins = part
                 .pins
                 .iter()
@@ -168,7 +170,7 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                                 .iter()
                                 .any(|node| node.ref_des == comp.ref_des && node.num == num)
                         })
-                        .ok_or(NetListParseError::MissingNet(
+                        .ok_or(ParseError::MissingNet(
                             comp.ref_des.0.to_string(),
                             num.0.to_string(),
                         ))?;
@@ -180,7 +182,7 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                         net,
                     })
                 })
-                .collect::<Result<_, NetListParseError>>()?;
+                .collect::<Result<_, ParseError>>()?;
         }
 
         for part in parts.iter_mut() {
@@ -195,7 +197,7 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                 })
                 .collect();
             if part.components.is_empty() {
-                return Err(NetListParseError::UnusedPart(format!(
+                return Err(ParseError::UnusedPart(format!(
                     "{}/{}",
                     part.part_id.lib, part.part_id.part
                 )));

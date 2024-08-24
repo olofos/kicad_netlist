@@ -1,13 +1,9 @@
-use crate::error::NetListParseError;
-use nom::{
-    branch::alt,
-    bytes::complete::{escaped, tag},
-    character::complete::{alpha1, multispace0, none_of, one_of},
-    combinator::{map, recognize, value},
-    multi::{many0, many1},
-    sequence::{delimited, terminated, tuple},
-    Finish, IResult,
-};
+use std::fmt::Display;
+
+use crate::error::ParseError;
+
+mod lexer;
+mod parser;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SExpr<'a> {
@@ -15,8 +11,23 @@ pub enum SExpr<'a> {
     String(&'a str),
 }
 
+impl<'a> Display for SExpr<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SExpr::SExpr(label, children) => {
+                write!(f, "({}", label)?;
+                for child in children {
+                    write!(f, " {}", child)?;
+                }
+                write!(f, ")")
+            }
+            SExpr::String(s) => write!(f, "\"{}\"", s),
+        }
+    }
+}
+
 impl<'a> SExpr<'a> {
-    pub fn value(&self, label: &str) -> Result<&'a str, NetListParseError> {
+    pub fn value(&self, label: &str) -> Result<&'a str, ParseError> {
         let child = self.child(label)?;
         if let SExpr::SExpr(_, children) = child {
             if !children.is_empty() {
@@ -26,7 +37,7 @@ impl<'a> SExpr<'a> {
                 }
             };
         }
-        Err(NetListParseError::MissingValue())
+        Err(ParseError::MissingValue())
     }
 
     pub fn children<'b, 'c>(&'b self, label: &'c str) -> LabeledChildIterator<'a, 'b, 'c> {
@@ -37,10 +48,10 @@ impl<'a> SExpr<'a> {
         LabeledChildIterator { iter, label }
     }
 
-    pub fn child<'b>(&self, label: &'b str) -> Result<&SExpr<'a>, NetListParseError> {
+    pub fn child<'b>(&self, label: &'b str) -> Result<&SExpr<'a>, ParseError> {
         let mut iter = self.children(label);
         iter.next()
-            .ok_or(NetListParseError::MissingChild(label.to_owned()))
+            .ok_or(ParseError::MissingChild(label.to_owned()))
     }
 }
 
@@ -70,42 +81,12 @@ impl<'a, 'b, 'c> Iterator for LabeledChildIterator<'a, 'b, 'c> {
     }
 }
 
-fn string(i: &str) -> IResult<&str, SExpr> {
-    map(
-        terminated(
-            alt((
-                value("", tag("\"\"")),
-                delimited(
-                    tag("\""),
-                    escaped(none_of(r#"\""#), '\\', one_of(r#""nfrtb\"#)),
-                    tag("\""),
-                ),
-                recognize(many1(none_of("\"\n\t ()"))),
-            )),
-            multispace0,
-        ),
-        SExpr::String,
-    )(i)
-}
+impl<'a> TryFrom<&'a String> for SExpr<'a> {
+    type Error = ParseError;
 
-fn label(i: &str) -> IResult<&str, &str> {
-    terminated(recognize(many1(alt((alpha1, tag("_"))))), multispace0)(i)
-}
-
-fn sexpr(i: &str) -> IResult<&str, SExpr> {
-    map(
-        delimited(
-            tag("("),
-            tuple((label, many0(alt((string, sexpr))))),
-            tuple((tag(")"), multispace0)),
-        ),
-        |(label, chilren)| SExpr::SExpr(label, chilren.into_boxed_slice()),
-    )(i)
-}
-
-pub fn parse(i: &str) -> Result<SExpr, NetListParseError> {
-    let (_, root) = (sexpr)(i).map_err(|e| e.to_owned()).finish()?;
-    Ok(root)
+    fn try_from(input: &'a String) -> Result<Self, Self::Error> {
+        SExpr::try_from(input.as_str())
+    }
 }
 
 #[cfg(test)]
@@ -122,47 +103,9 @@ mod tests {
             .unwrap()
         };
     }
-
-    #[test]
-    fn can_parse_string() {
-        for (i, e) in [
-            (r#""""#, ""),
-            (r#""a""#, "a"),
-            (r#""a b""#, "a b"),
-            ("a", "a"),
-        ] {
-            let (i, r) = string(i).unwrap();
-            assert_eq!(i, "");
-            assert_eq!(r, SExpr::String(e));
-        }
-    }
-
-    #[test]
-    fn sexpr_works() {
-        let i = r#"(a "b")"#;
-        let (i, r) = sexpr(i).unwrap();
-        assert_eq!(i, "");
-        let SExpr::SExpr(label, children) = r else {
-            panic!("")
-        };
-        assert_eq!(label, "a");
-        assert_eq!(children.len(), 1);
-    }
-
-    #[test]
-    fn sexpr_children_by_name_works() {
-        let i = r#"(a (b "1") (c "2") (b "3"))"#;
-        let (_, root) = sexpr(i).unwrap();
-
-        let mut iter = root.children("b");
-        assert!(iter.next().is_some());
-        assert!(iter.next().is_some());
-        assert!(iter.next().is_none());
-    }
-
     #[test]
     fn sexpr_can_parse_full_file() {
         let i = &test_data!("kvt.net");
-        let _ = sexpr(i).unwrap();
+        let _ = SExpr::try_from(i).unwrap();
     }
 }
