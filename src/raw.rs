@@ -1,3 +1,5 @@
+mod parser;
+
 /// The full netlist
 #[derive(Debug, Clone)]
 pub struct NetList<'a> {

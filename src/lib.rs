@@ -4,7 +4,6 @@
 
 mod error;
 mod parse;
-mod parse_raw;
 pub mod raw;
 mod sexpr;
 
