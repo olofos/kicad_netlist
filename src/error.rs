@@ -26,4 +26,6 @@ pub enum ParseError {
     UnusedPart(String),
     #[error("Unknown version {0}")]
     UnknownVersion(String),
+    #[error("Unexpected root label {0}")]
+    UnexpectedRootLabel(String),
 }

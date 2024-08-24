@@ -40,6 +40,13 @@ impl<'a> SExpr<'a> {
         Err(ParseError::MissingValue())
     }
 
+    pub fn label(&self) -> Option<&'a str> {
+        match self {
+            SExpr::SExpr(label, _) => Some(label),
+            SExpr::String(_) => None,
+        }
+    }
+
     pub fn children<'b, 'c>(&'b self, label: &'c str) -> LabeledChildIterator<'a, 'b, 'c> {
         let iter = match self {
             SExpr::String(_) => None,

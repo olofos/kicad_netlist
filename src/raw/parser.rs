@@ -105,6 +105,11 @@ impl<'a> TryFrom<&SExpr<'a>> for NetList<'a> {
     type Error = ParseError;
 
     fn try_from(value: &SExpr<'a>) -> Result<Self, Self::Error> {
+        let label = value.label().unwrap();
+        if label != "export" {
+            return Err(ParseError::UnexpectedRootLabel(label.to_owned()));
+        }
+
         let version = value.value("version")?;
         if version != "E" {
             return Err(ParseError::UnknownVersion(version.to_owned()));
