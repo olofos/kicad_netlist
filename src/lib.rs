@@ -173,8 +173,7 @@ impl<'a> NetList<'a> {
             return;
         };
 
-        let PartId { lib, part } = &self.components[index].part_id;
-        let part_id = PartId { lib, part };
+        let part_id = self.components[index].part_id.clone();
 
         self.components.remove(index);
 
@@ -197,7 +196,7 @@ impl<'a> NetList<'a> {
         let removed_part_ids: HashSet<_> =
             HashSet::from_iter(self.components.iter().filter_map(|comp| {
                 if ref_des_list.contains(&comp.ref_des) {
-                    Some(comp.part_id)
+                    Some(comp.part_id.clone())
                 } else {
                     None
                 }

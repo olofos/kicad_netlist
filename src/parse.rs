@@ -183,10 +183,10 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                             comp.ref_des.0.to_string(),
                             num.0.to_string(),
                         ))?;
-                    let net = net.name.into();
+                    let net = net.name.clone().into();
                     Ok(ComponentPin {
-                        num: *num,
-                        name: *name,
+                        num: num.clone(),
+                        name: name.clone(),
                         typ: *typ,
                         net,
                     })
@@ -199,7 +199,7 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                 .iter()
                 .filter_map(|comp| {
                     if comp.part_id == part.part_id {
-                        Some(comp.ref_des)
+                        Some(comp.ref_des.clone())
                     } else {
                         None
                     }
