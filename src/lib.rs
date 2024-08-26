@@ -26,24 +26,58 @@ pub struct PartId<'a> {
     pub part: &'a str,
 }
 
-/// Reference designator
+/// General property
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct RefDes<'a>(pub &'a str);
+pub struct Property<'a> {
+    pub name: &'a str,
+    pub value: &'a str,
+}
 
-/// Pin number
-///
-/// Note that the number is a string, not an actual number, because we need to support, eg, BGA packages with pin numbers A1, A2, A3 etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PinNum<'a>(pub &'a str);
+/// Define simple wrapper types
+macro_rules! define_pub_str_wrapper {
+    ($name:ident,$doc:expr) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[doc = $doc]
+        pub struct $name<'a>(&'a str);
+
+        impl std::fmt::Display for $name<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl<'a> $name<'a> {
+            pub fn as_str(&self) -> &str {
+                self.0.as_ref()
+            }
+        }
+
+        impl<'a> From<&'a str> for $name<'a> {
+            fn from(value: &'a str) -> Self {
+                Self(value.into())
+            }
+        }
+    };
+}
+
+define_pub_str_wrapper!(RefDes, "Reference designator");
+define_pub_str_wrapper!(PinNum, "Pin number\n\nNote that the number is a string, not an actual number, because we need to support, eg, BGA packages with pin numbers A1, A2, A3 etc.");
+define_pub_str_wrapper!(PinName, "Name of pin");
+define_pub_str_wrapper!(PinFunction, "Pin function");
+define_pub_str_wrapper!(Value, "Component value");
+define_pub_str_wrapper!(Footprint, "Footprint");
+define_pub_str_wrapper!(NetName, "Name of net");
+define_pub_str_wrapper!(NetCode, "Net id");
+define_pub_str_wrapper!(PartDescription, "Description");
 
 /// A component in the schematic
 #[derive(Debug, Clone)]
 pub struct Component<'a> {
     pub ref_des: RefDes<'a>,
-    pub value: &'a str,
+    pub value: Value<'a>,
     pub part_id: PartId<'a>,
-    pub properties: Vec<(&'a str, &'a str)>,
-    pub footprint: Option<&'a str>,
+    pub properties: Vec<Property<'a>>,
+    pub footprint: Option<Footprint<'a>>,
     pub pins: Vec<ComponentPin<'a>>,
 }
 
@@ -67,16 +101,16 @@ pub enum PinType {
 #[derive(Debug, Clone)]
 pub struct ComponentPin<'a> {
     pub num: PinNum<'a>,
-    pub name: &'a str,
+    pub name: PinName<'a>,
     pub typ: PinType,
-    pub net: &'a str,
+    pub net: NetName<'a>,
 }
 
 /// A pin of a part
 #[derive(Debug, Clone)]
 pub struct PartPin<'a> {
     pub num: PinNum<'a>,
-    pub name: &'a str,
+    pub name: PinName<'a>,
     pub typ: PinType,
 }
 
@@ -84,7 +118,7 @@ pub struct PartPin<'a> {
 #[derive(Debug, Clone)]
 pub struct Part<'a> {
     pub part_id: PartId<'a>,
-    pub description: &'a str,
+    pub description: PartDescription<'a>,
     pub pins: Vec<PartPin<'a>>,
     pub components: Vec<RefDes<'a>>,
 }
@@ -94,7 +128,7 @@ pub struct Part<'a> {
 pub struct Node<'a> {
     pub ref_des: RefDes<'a>,
     pub num: PinNum<'a>,
-    pub function: Option<&'a str>,
+    pub function: Option<PinFunction<'a>>,
     pub typ: PinType,
 }
 
@@ -102,8 +136,8 @@ pub struct Node<'a> {
 #[derive(Debug, Clone)]
 pub struct Net<'a> {
     /// A unique id for the net
-    pub code: &'a str,
-    pub name: &'a str,
+    pub code: NetCode<'a>,
+    pub name: NetName<'a>,
     pub nodes: Vec<Node<'a>>,
 }
 
@@ -216,13 +250,13 @@ mod tests {
         assert_eq!(netlist.parts.len(), 3);
         assert_eq!(netlist.nets.len(), 7);
 
-        netlist.remove_component(RefDes("R1"));
+        netlist.remove_component(RefDes::from("R1"));
 
         assert_eq!(netlist.components.len(), 3);
         assert_eq!(netlist.parts.len(), 2);
         assert_eq!(netlist.nets.len(), 7);
 
-        netlist.remove_component(RefDes("U2"));
+        netlist.remove_component(RefDes::from("U2"));
 
         assert_eq!(netlist.components.len(), 2);
         assert_eq!(netlist.parts.len(), 2);
@@ -238,7 +272,7 @@ mod tests {
         assert_eq!(netlist.parts.len(), 3);
         assert_eq!(netlist.nets.len(), 7);
 
-        netlist.remove_components(&vec![RefDes("R1"), RefDes("U2")]);
+        netlist.remove_components(&vec![RefDes::from("R1"), RefDes::from("U2")]);
 
         assert_eq!(netlist.components.len(), 2);
         assert_eq!(netlist.parts.len(), 2);

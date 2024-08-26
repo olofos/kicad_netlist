@@ -1,6 +1,6 @@
 use crate::{
-    raw, Component, ComponentPin, Net, NetList, Node, ParseError, Part, PartId, PartPin, PinNum,
-    PinType, RefDes,
+    raw, Component, ComponentPin, Net, NetList, Node, ParseError, Part, PartId, PartPin, PinType,
+    Property,
 };
 
 impl TryFrom<&str> for PinType {
@@ -31,9 +31,11 @@ impl<'a> TryFrom<raw::Pin<'a>> for PartPin<'a> {
 
     fn try_from(value: raw::Pin<'a>) -> Result<Self, Self::Error> {
         let raw::Pin { num, name, typ } = value;
-        let num = PinNum(num);
-        let typ = typ.try_into()?;
-        Ok(PartPin { num, name, typ })
+        Ok(PartPin {
+            num: num.into(),
+            name: name.into(),
+            typ: typ.try_into()?,
+        })
     }
 }
 
@@ -47,11 +49,14 @@ impl<'a> TryFrom<raw::Part<'a>> for Part<'a> {
             description,
             pins,
         } = value;
+
         let part_id = PartId { lib, part };
         let pins = pins
             .into_iter()
             .map(|pin| pin.try_into())
             .collect::<Result<_, _>>()?;
+        let description = description.into();
+
         Ok(Part {
             part_id,
             description,
@@ -73,15 +78,19 @@ impl<'a> TryFrom<raw::Component<'a>> for Component<'a> {
             properties,
             footprint,
         } = value;
-        let ref_des = RefDes(ref_des);
         let part_id = PartId { lib, part };
 
+        let properties = properties
+            .into_iter()
+            .map(|(name, value)| Property { name, value })
+            .collect();
+
         Ok(Component {
-            ref_des,
-            value,
+            ref_des: ref_des.into(),
+            value: value.into(),
             part_id,
             properties,
-            footprint,
+            footprint: footprint.map(|s| s.into()),
             pins: vec![],
         })
     }
@@ -97,14 +106,11 @@ impl<'a> TryFrom<raw::Node<'a>> for Node<'a> {
             function,
             typ,
         } = value;
-        let ref_des = RefDes(ref_des);
-        let num = PinNum(num);
-        let typ = typ.try_into()?;
         Ok(Node {
-            ref_des,
-            num,
-            function,
-            typ,
+            ref_des: ref_des.into(),
+            num: num.into(),
+            function: function.map(|f| f.into()),
+            typ: typ.try_into()?,
         })
     }
 }
@@ -118,7 +124,11 @@ impl<'a> TryFrom<raw::Net<'a>> for Net<'a> {
             .into_iter()
             .map(|node| node.try_into())
             .collect::<Result<_, _>>()?;
-        Ok(Net { code, name, nodes })
+        Ok(Net {
+            code: code.into(),
+            name: name.into(),
+            nodes,
+        })
     }
 }
 
@@ -161,24 +171,23 @@ impl<'a> TryFrom<raw::NetList<'a>> for NetList<'a> {
                 .iter()
                 .map(|pin| {
                     let PartPin { num, name, typ } = pin;
-                    let num = *num;
-                    let typ = *typ;
+
                     let net = nets
                         .iter()
                         .find(|net| {
                             net.nodes
                                 .iter()
-                                .any(|node| node.ref_des == comp.ref_des && node.num == num)
+                                .any(|node| node.ref_des == comp.ref_des && &node.num == num)
                         })
                         .ok_or(ParseError::MissingNet(
                             comp.ref_des.0.to_string(),
                             num.0.to_string(),
                         ))?;
-                    let net = net.name;
+                    let net = net.name.into();
                     Ok(ComponentPin {
-                        num,
-                        name,
-                        typ,
+                        num: *num,
+                        name: *name,
+                        typ: *typ,
                         net,
                     })
                 })
