@@ -1,6 +1,6 @@
 use crate::{
-    raw, Component, ComponentPin, Net, NetList, Node, ParseError, Part, PartId, PartPin, PinType,
-    Property,
+    raw, Component, ComponentPin, Net, NetList, NetNode, ParseError, Part, PartId, PartPin,
+    PinType, Property,
 };
 
 impl TryFrom<&str> for PinType {
@@ -96,7 +96,7 @@ impl<'a> TryFrom<raw::Component<'a>> for Component<'a> {
     }
 }
 
-impl<'a> TryFrom<raw::Node<'a>> for Node<'a> {
+impl<'a> TryFrom<raw::Node<'a>> for NetNode<'a> {
     type Error = ParseError;
 
     fn try_from(value: raw::Node<'a>) -> Result<Self, Self::Error> {
@@ -106,7 +106,7 @@ impl<'a> TryFrom<raw::Node<'a>> for Node<'a> {
             function,
             typ,
         } = value;
-        Ok(Node {
+        Ok(NetNode {
             ref_des: ref_des.into(),
             num: num.into(),
             function: function.map(|f| f.into()),

@@ -125,7 +125,7 @@ pub struct Part<'a> {
 
 /// A node connects a net to a pin
 #[derive(Debug, Clone)]
-pub struct Node<'a> {
+pub struct NetNode<'a> {
     pub ref_des: RefDes<'a>,
     pub num: PinNum<'a>,
     pub function: Option<PinFunction<'a>>,
