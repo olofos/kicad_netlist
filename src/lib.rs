@@ -229,6 +229,32 @@ impl<'a> NetList<'a> {
             }
         }
     }
+
+    pub fn find_component(&self, ref_des: RefDes<'_>) -> Option<&Component<'_>> {
+        self.components.iter().find(|comp| comp.ref_des == ref_des)
+    }
+
+    pub fn find_part(&self, part_id: PartId<'_>) -> Option<&Part<'_>> {
+        self.parts.iter().find(|p| p.part_id == part_id)
+    }
+
+    pub fn find_net(&self, name: NetName<'_>) -> Option<&Net<'_>> {
+        self.nets.iter().find(|net| net.name == name)
+    }
+}
+
+impl<'a> Component<'a> {
+    pub fn find_pin(&self, num: PinNum<'_>) -> Option<&ComponentPin<'_>> {
+        self.pins.iter().find(|pin| pin.num == num).map(|pin| pin)
+    }
+}
+
+impl<'a> Net<'a> {
+    pub fn find_node(&self, ref_des: RefDes<'_>, num: PinNum<'_>) -> Option<&NetNode<'_>> {
+        self.nodes
+            .iter()
+            .find(|node| node.ref_des == ref_des && node.num == num)
+    }
 }
 
 #[cfg(test)]
