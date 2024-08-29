@@ -12,7 +12,7 @@ use std::collections::HashSet;
 pub use error::ParseError;
 
 /// The full netlist
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NetList<'a> {
     pub components: Vec<Component<'a>>,
     pub parts: Vec<Part<'a>>,
@@ -77,7 +77,7 @@ define_pub_str_wrapper!(NetCode, "Net id");
 define_pub_str_wrapper!(PartDescription, "Description");
 
 /// A component in the schematic
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Component<'a> {
     pub ref_des: RefDes<'a>,
     pub value: Value<'a>,
@@ -104,7 +104,7 @@ pub enum PinType {
 }
 
 /// A pin of an individual component
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentPin<'a> {
     pub num: PinNum<'a>,
     pub name: PinName<'a>,
@@ -113,7 +113,7 @@ pub struct ComponentPin<'a> {
 }
 
 /// A pin of a part
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartPin<'a> {
     pub num: PinNum<'a>,
     pub name: PinName<'a>,
@@ -121,7 +121,7 @@ pub struct PartPin<'a> {
 }
 
 /// A part
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Part<'a> {
     pub part_id: PartId<'a>,
     pub description: PartDescription<'a>,
@@ -130,7 +130,7 @@ pub struct Part<'a> {
 }
 
 /// A node connects a net to a pin
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NetNode<'a> {
     pub ref_des: RefDes<'a>,
     pub num: PinNum<'a>,
@@ -139,12 +139,12 @@ pub struct NetNode<'a> {
 }
 
 /// A net
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Net<'a> {
     /// A unique id for the net
     pub code: NetCode<'a>,
     pub name: NetName<'a>,
-    pub nodes: Vec<Node<'a>>,
+    pub nodes: Vec<NetNode<'a>>,
 }
 
 impl<'a> TryFrom<&'a str> for NetList<'a> {
