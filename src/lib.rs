@@ -54,7 +54,13 @@ macro_rules! define_pub_str_wrapper {
 
         impl<'a> From<&'a str> for $name<'a> {
             fn from(value: &'a str) -> Self {
-                Self(value.into())
+                Self(value)
+            }
+        }
+
+        impl<'a> From<&'a String> for $name<'a> {
+            fn from(value: &'a String) -> Self {
+                Self(value.as_str())
             }
         }
     };
